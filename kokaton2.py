@@ -106,10 +106,15 @@ def display_game_clear():
     pygame.display.flip()
     pygame.time.wait(3000)
 
+
+# 背景画像の読み込み
+background_image = pg.image.load(f"fig/pg_bg.jpg")
+background_image = pygame.transform.scale(background_image, (WIDTH, HEIGHT))  # 画面サイズに合わせてリサイズ
+
 # ゲームループ
 running = True
 while running:
-    SCREEN.fill(WHITE)
+    SCREEN.blit(background_image,(0,0))
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
