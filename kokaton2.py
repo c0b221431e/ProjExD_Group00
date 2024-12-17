@@ -2,6 +2,11 @@ import pygame
 import sys
 import random
 import heapq
+import pygame as pg
+import os
+
+#画像ファイルの場所を取得
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # Pygameの初期化
 pygame.init()
@@ -81,9 +86,13 @@ player_size = CELL_SIZE // 2
 player_x, player_y = CELL_SIZE + (CELL_SIZE // 4), CELL_SIZE + (CELL_SIZE // 4)
 player_speed = 4
 
-# 描画関数
+# プレイヤー画像の読み込み
+player_image = pg.image.load(f"fig/3.png") #こうかとんの画像
+player_image = pygame.transform.scale(player_image, (player_size, player_size))  # プレイヤーの大きさにリサイズ
+
+# 描画関数（変更点）
 def draw_player(x, y):
-    pygame.draw.rect(SCREEN, BLUE, (x, y, player_size, player_size))
+    SCREEN.blit(player_image, (x, y))  # 画像を描画
 
 def draw_maze():
     for wall in walls:
