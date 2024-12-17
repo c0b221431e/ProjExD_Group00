@@ -8,8 +8,8 @@ pygame.init()
 
 # 画面の設定
 WIDTH, HEIGHT = 1024, 768  # 画面の大きさ
-CELL_SIZE = 32  # セルサイズを設定
-ROWS, COLS = HEIGHT // CELL_SIZE, WIDTH // CELL_SIZE
+CELL_SIZE = 50  # セルサイズを大きく設定（道を広くする）
+ROWS, COLS = HEIGHT // CELL_SIZE, WIDTH // CELL_SIZE  # 画面に収まるように行数と列数を計算
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Maze Game")
 
@@ -32,10 +32,10 @@ def generate_maze(rows, cols):
         directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]  # 上下左右
         random.shuffle(directions)
         for dx, dy in directions:
-            nx, ny = cx + dx * 2, cy + dy * 2
+            nx, ny = cx + dx * 2, cy + dy * 2  # 通路の幅を広げるために 2セル飛ばす
             if 0 < nx < cols - 1 and 0 < ny < rows - 1 and maze[ny][nx] == 1:
-                maze[cy + dy][cx + dx] = 0
-                maze[ny][nx] = 0
+                maze[cy + dy][cx + dx] = 0  # 壁を削除
+                maze[ny][nx] = 0  # 壁を削除
                 carve_passages(nx, ny)
 
     # 最短距離検索でゴールを位置決定
@@ -77,7 +77,7 @@ for row_index, row in enumerate(maze):
             goal = pygame.Rect(col_index * CELL_SIZE, row_index * CELL_SIZE, CELL_SIZE, CELL_SIZE)
 
 # プレイヤーの初期位置
-player_size = CELL_SIZE // 2
+player_size = CELL_SIZE // 3
 player_x, player_y = CELL_SIZE + (CELL_SIZE // 4), CELL_SIZE + (CELL_SIZE // 4)
 player_speed = 4
 
@@ -131,3 +131,4 @@ while running:
 
 pygame.quit()
 sys.exit()
+
