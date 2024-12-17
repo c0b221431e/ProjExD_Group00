@@ -94,10 +94,19 @@ player_image = pygame.transform.scale(player_image, (player_size, player_size)) 
 def draw_player(x, y):
     SCREEN.blit(player_image, (x, y))  # 画像を描画
 
+try:
+    wall_image = pg.image.load(f"fig/zimen.jpg")  # 壁の画像ファイル
+    wall_image = pygame.transform.scale(wall_image, (CELL_SIZE, CELL_SIZE))  # セルサイズにリサイズ
+except FileNotFoundError:
+    print("Error: 壁の画像ファイルが見つかりません。")
+    pygame.quit()
+    sys.exit()
+
+# 迷路を描画する関数の修正
 def draw_maze():
     for wall in walls:
-        pygame.draw.rect(SCREEN, BLACK, wall)
-    pygame.draw.rect(SCREEN, GREEN, goal)
+        SCREEN.blit(wall_image, wall.topleft)  # 壁の位置に画像を描画
+    pygame.draw.rect(SCREEN, GREEN, goal)  # ゴールはそのまま
 
 def display_game_clear():
     font = pygame.font.Font(None, 74)
