@@ -3,6 +3,11 @@ import sys
 import random
 import heapq
 import time
+import pygame as pg
+import os
+
+#画像ファイルの場所を取得
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # Pygameの初期化
 pygame.init()
@@ -177,12 +182,24 @@ invincible_flash = False  # 無敵中の点滅状態
 # アイテム生成
 items = generate_items(maze, 5)
 
-# 描画関数
+# プレイヤー画像の読み込み
+player_image = pg.image.load(f"fig/3.png") #こうかとんの画像
+player_image = pygame.transform.scale(player_image, (player_size, player_size))  # プレイヤーの大きさにリサイズ
+
+# 描画関数（変更点）
 def draw_player_wall(x, y, invincible):
     # 無敵状態なら点滅させる
     if invincible and int(time.time() * 5) % 2 == 0:  # 点滅効果
         return
-    pygame.draw.rect(SCREEN, BLUE, (x, y, player_size, player_size))
+    SCREEN.blit(player_image, (x, y))  # 画像を描画
+
+try:
+    wall_image = pg.image.load(f"fig/zimen.jpg")  # 壁の画像ファイル
+    wall_image = pygame.transform.scale(wall_image, (CELL_SIZE, CELL_SIZE))  # セルサイズにリサイズ
+except FileNotFoundError:
+    print("Error: 壁の画像ファイルが見つかりません。")
+    pygame.quit()
+    sys.exit()
 
 PLAYER_IMAGE = pygame.image.load("fig/0.png")
 PLAYER_IMAGE = pygame.transform.scale(PLAYER_IMAGE, (player_size, player_size))
@@ -201,13 +218,14 @@ def draw_player(x, y):
     
     SCREEN.blit(player_image, (x, y))
 
+# 迷路を描画する関数の修正
 def draw_maze():
     for wall in walls:
         if wall in damage_walls:
             pygame.draw.rect(SCREEN, RED, wall)  # ダメージ壁は赤色
         else:
-            pygame.draw.rect(SCREEN, BLACK, wall)
-    pygame.draw.rect(SCREEN, GREEN, goal)
+            SCREEN.blit(wall_image, wall.topleft)  # 壁の位置に画像を描画
+    pygame.draw.rect(SCREEN, GREEN, goal)  # ゴールはそのまま
 
 def display_game_clear():
     font = pygame.font.Font(None, 74)
@@ -237,10 +255,15 @@ def check_item_collision(player_rect, items):
                 invincible_timer = 300
             items.remove(item)
 
+
+# 背景画像の読み込み
+background_image = pg.image.load(f"fig/pg_bg.jpg")
+background_image = pygame.transform.scale(background_image, (WIDTH, HEIGHT))  # 画面サイズに合わせてリサイズ
+
 # ゲームループ
 running = True
 while running:
-    SCREEN.fill(WHITE)
+    SCREEN.blit(background_image,(0,0))
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
