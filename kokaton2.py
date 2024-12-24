@@ -20,7 +20,6 @@ BLACK = (0, 0, 0)
 BLUE = (0, 0, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
-YELLOW = (255, 255, 0)  # ダメージ壁の色
 
 # フレームレート
 FPS = 60
@@ -103,7 +102,7 @@ def draw_player(x, y, invincible):
 def draw_maze():
     for wall in walls:
         if wall in damage_walls:
-            pygame.draw.rect(SCREEN, YELLOW, wall)  # ダメージ壁は黄色
+            pygame.draw.rect(SCREEN, RED, wall)  # ダメージ壁は赤色
         else:
             pygame.draw.rect(SCREEN, BLACK, wall)
     pygame.draw.rect(SCREEN, GREEN, goal)
@@ -170,7 +169,7 @@ while running:
     draw_player(player_x, player_y, invincible)
     # 体力表示
     font = pygame.font.Font(None, 36)
-    health_text = font.render(f"Health: {player_health}", True, RED)
+    health_text = font.render(f"Health: {player_health}", True, GREEN)
     SCREEN.blit(health_text, (10, 10))
     
     pygame.display.flip()
