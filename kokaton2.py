@@ -13,6 +13,7 @@ CELL_SIZE = 32  # セルサイズを設定
 ROWS, COLS = HEIGHT // CELL_SIZE, WIDTH // CELL_SIZE
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Maze Game with Invincibility")
+pygame.display.set_caption("Maze Game with Items")
 
 # 色の定義
 WHITE = (255, 255, 255)
@@ -20,10 +21,22 @@ BLACK = (0, 0, 0)
 BLUE = (0, 0, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0)
 
 # フレームレート
 FPS = 60
 clock = pygame.time.Clock()
+
+# アイテム画像の読み込み
+ITEM_IMAGES = {
+    "hp": pygame.image.load("ex5/fig/hp.png"),
+    "weapon": pygame.image.load("ex5/fig/sword1.png"),
+    "invincible": pygame.image.load("ex5/fig/star.png"),
+}
+
+# アイテム画像をセルサイズにリサイズ
+for key in ITEM_IMAGES:
+    ITEM_IMAGES[key] = pygame.transform.scale(ITEM_IMAGES[key], (CELL_SIZE, CELL_SIZE))
 
 # 迷路生成関数（ゴールを最も遠い点に置く）
 def generate_maze(rows, cols):
@@ -39,7 +52,6 @@ def generate_maze(rows, cols):
                 maze[ny][nx] = 0
                 carve_passages(nx, ny)
 
-    # 最短距離検索でゴールを位置決定
     def find_furthest_point(start_x, start_y):
         distances = [[-1 for _ in range(cols)] for _ in range(rows)]
         pq = [(0, start_x, start_y)]  # ヒープの初期化
@@ -64,7 +76,29 @@ def generate_maze(rows, cols):
     maze[furthest_y][furthest_x] = 2  # ゴール位置
     return maze
 
-# 迷路の生成
+# アイテムのクラス
+class Item:
+    def __init__(self, x, y, item_type):
+        self.rect = pygame.Rect(x, y, CELL_SIZE, CELL_SIZE)
+        self.type = item_type  # "hp", "weapon", "invincible"
+
+    def draw(self):
+        SCREEN.blit(ITEM_IMAGES[self.type], self.rect.topleft)
+
+# アイテム生成関数
+def generate_items(maze, num_items):
+    items = []
+    for _ in range(num_items):
+        while True:
+            x = random.randint(1, COLS - 2) * CELL_SIZE
+            y = random.randint(1, ROWS - 2) * CELL_SIZE
+            if maze[y // CELL_SIZE][x // CELL_SIZE] == 0:
+                item_type = random.choice(["hp", "weapon", "invincible"])
+                items.append(Item(x, y, item_type))
+                break
+    return items
+
+# 迷路生成
 maze = generate_maze(ROWS, COLS)
 
 # 壁とゴールのリスト
@@ -92,12 +126,39 @@ player_health = 100  # プレイヤーの体力
 invincible = False
 invincible_start_time = 0
 
+# ステータス
+weapon_active = False
+invincible_item = False
+weapon_timer = 0
+invincible_timer = 0
+invincible_flash = False  # 無敵中の点滅状態
+
+# アイテム生成
+items = generate_items(maze, 5)
+
 # 描画関数
-def draw_player(x, y, invincible):
+def draw_player_wall(x, y, invincible):
     # 無敵状態なら点滅させる
     if invincible and int(time.time() * 5) % 2 == 0:  # 点滅効果
         return
     pygame.draw.rect(SCREEN, BLUE, (x, y, player_size, player_size))
+
+PLAYER_IMAGE = pygame.image.load("ex5/fig/0.png")
+PLAYER_IMAGE = pygame.transform.scale(PLAYER_IMAGE, (player_size, player_size))
+
+def draw_player(x, y):
+    global invincible_flash
+    player_image = PLAYER_IMAGE.copy()
+    
+    if invincible_item:
+        invincible_flash = (invincible_flash + 1) % 30  # 点滅スピード調整（30フレームで切り替え）
+        if invincible_flash < 15:
+            # 黄色く点滅
+            yellow_tint = pygame.Surface(player_image.get_size())
+            yellow_tint.fill(YELLOW)
+            player_image.blit(yellow_tint, (0, 0), special_flags=pygame.BLEND_MULT)
+    
+    SCREEN.blit(player_image, (x, y))
 
 def draw_maze():
     for wall in walls:
@@ -120,6 +181,20 @@ def display_game_over():
     SCREEN.blit(text, (WIDTH // 2 - text.get_width() // 2, HEIGHT // 2 - text.get_height() // 2))
     pygame.display.flip()
     pygame.time.wait(3000)
+# アイテム取得判定
+def check_item_collision(player_rect, items):
+    global player_health, weapon_active, invincible_item, weapon_timer, invincible_timer
+    for item in items[:]:
+        if player_rect.colliderect(item.rect):
+            if item.type == "hp":
+                player_health = min(player_health + 10, 100)
+            elif item.type == "weapon":
+                weapon_active = True
+                weapon_timer = 300
+            elif item.type == "invincible":
+                invincible_item = True
+                invincible_timer = 300
+            items.remove(item)
 
 # ゲームループ
 running = True
@@ -164,14 +239,33 @@ while running:
         display_game_clear()
         running = False
 
-    # 描画処理
+    check_item_collision(player_rect, items)
+
+    if weapon_active:
+        weapon_timer -= 1
+        if weapon_timer <= 0:
+            weapon_active = False
+    if invincible_item:
+        invincible_timer -= 1
+        if invincible_timer <= 0:
+            invincible_item = False
+
     draw_maze()
-    draw_player(player_x, player_y, invincible)
-    # 体力表示
+    draw_player_wall(player_x, player_y, invincible)
+    for item in items:
+        item.draw()
+    draw_player(player_x, player_y)
+
+    # UI表示
     font = pygame.font.Font(None, 36)
-    health_text = font.render(f"Health: {player_health}", True, GREEN)
-    SCREEN.blit(health_text, (10, 10))
-    
+    hp_text = font.render(f"HP: {player_health}", True, GREEN)
+    SCREEN.blit(hp_text, (10, 10))
+
+    if weapon_active:
+        SCREEN.blit(font.render("Weapon Active", True, (255, 165, 0)), (10, 50))
+    if invincible_item:
+        SCREEN.blit(font.render("Invincible", True, (0, 255, 255)), (10, 90))
+
     pygame.display.flip()
     clock.tick(FPS)
 
