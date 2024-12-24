@@ -39,7 +39,6 @@ def generate_maze(rows, cols):
                 maze[ny][nx] = 0
                 carve_passages(nx, ny)
 
-    # 最短距離検索でゴールを位置決定
     def find_furthest_point(start_x, start_y):
         distances = [[-1 for _ in range(cols)] for _ in range(rows)]
         pq = [(0, start_x, start_y)]  # ヒープの初期化
@@ -70,21 +69,42 @@ class Mob:
         self.rect = pygame.Rect(x, y, CELL_SIZE // 2, CELL_SIZE // 2)
         self.speed = speed
         self.direction = random.choice([(0, -1), (0, 1), (-1, 0), (1, 0)])
+        self.color = random.choice([RED, (128, 0, 128), (255, 255, 0)])
 
     def move(self, walls):
         dx, dy = self.direction
         new_rect = self.rect.move(dx * self.speed, dy * self.speed)
-        # 移動先が壁に不正なら向きを変更
         if not any(new_rect.colliderect(wall) for wall in walls):
             self.rect = new_rect
         else:
             self.direction = random.choice([(0, -1), (0, 1), (-1, 0), (1, 0)])
-        # 画面の境界出ないようにチェック
         if self.rect.left < 0 or self.rect.right > WIDTH or self.rect.top < 0 or self.rect.bottom > HEIGHT:
             self.direction = random.choice([(0, -1), (0, 1), (-1, 0), (1, 0)])
 
     def draw(self, screen):
-        pygame.draw.rect(screen, ORANGE, self.rect)
+        center = (self.rect.centerx, self.rect.centery)
+        pygame.draw.circle(screen, self.color, center, self.rect.width // 2)
+        eye_offset = self.rect.width // 4
+        eye_radius = self.rect.width // 8
+        pygame.draw.circle(screen, WHITE, (center[0] - eye_offset, center[1] - eye_offset), eye_radius)
+        pygame.draw.circle(screen, WHITE, (center[0] + eye_offset, center[1] - eye_offset), eye_radius)
+        pygame.draw.circle(screen, BLACK, (center[0] - eye_offset, center[1] - eye_offset), eye_radius // 2)
+        pygame.draw.circle(screen, BLACK, (center[0] + eye_offset, center[1] - eye_offset), eye_radius // 2)
+
+# 壁のデザイン
+def draw_maze():
+    for wall in walls:
+        pygame.draw.rect(SCREEN, (139, 69, 19), wall)
+        pygame.draw.rect(SCREEN, (160, 82, 45), wall.inflate(-2, -2))
+    pygame.draw.rect(SCREEN, (0, 255, 0), goal)
+
+# プレイヤーのデザイン
+def draw_player(x, y):
+    pygame.draw.circle(SCREEN, BLUE, (x + player_size // 2, y + player_size // 2), player_size // 2)
+    hat_top = (x + player_size // 2, y + player_size // 4)
+    hat_left = (x + player_size // 4, y + player_size // 2)
+    hat_right = (x + player_size * 3 // 4, y + player_size // 2)
+    pygame.draw.polygon(SCREEN, (0, 0, 255), [hat_top, hat_left, hat_right])
 
 # 迷路の生成
 maze = generate_maze(ROWS, COLS)
@@ -96,7 +116,7 @@ for row_index, row in enumerate(maze):
     for col_index, cell in enumerate(row):
         if cell == 1:
             walls.append(pygame.Rect(col_index * CELL_SIZE, row_index * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-        elif cell == 2:  # ゴールの位置
+        elif cell == 2:
             goal = pygame.Rect(col_index * CELL_SIZE, row_index * CELL_SIZE, CELL_SIZE, CELL_SIZE)
 
 # 敵MOBの配置
@@ -114,14 +134,6 @@ player_x, player_y = CELL_SIZE + (CELL_SIZE // 4), CELL_SIZE + (CELL_SIZE // 4)
 player_speed = 4
 
 # 描画関数
-def draw_player(x, y):
-    pygame.draw.rect(SCREEN, BLUE, (x, y, player_size, player_size))
-
-def draw_maze():
-    for wall in walls:
-        pygame.draw.rect(SCREEN, BLACK, wall)
-    pygame.draw.rect(SCREEN, GREEN, goal)
-
 def display_game_clear():
     font = pygame.font.Font(None, 74)
     text = font.render("Game Clear!", True, RED)
@@ -163,7 +175,6 @@ while running:
         display_game_clear()
         running = False
 
-    # 敵の移動と描画
     for mob in mobs:
         mob.move(walls)
         mob.draw(SCREEN)
