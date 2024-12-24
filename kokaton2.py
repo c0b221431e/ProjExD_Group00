@@ -22,6 +22,7 @@ BLUE = (0, 0, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 YELLOW = (255, 255, 0)
+ORANGE = (255, 165, 0)  # 敵MOBの色
 
 # フレームレート
 FPS = 60
@@ -29,9 +30,9 @@ clock = pygame.time.Clock()
 
 # アイテム画像の読み込み
 ITEM_IMAGES = {
-    "hp": pygame.image.load("ex5/fig/hp.png"),
-    "weapon": pygame.image.load("ex5/fig/sword1.png"),
-    "invincible": pygame.image.load("ex5/fig/star.png"),
+    "hp": pygame.image.load("fig/hp.png"),
+    "weapon": pygame.image.load("fig/sword1.png"),
+    "invincible": pygame.image.load("fig/star.png"),
 }
 
 # アイテム画像をセルサイズにリサイズ
@@ -98,7 +99,36 @@ def generate_items(maze, num_items):
                 break
     return items
 
-# 迷路生成
+# 敵MOBクラス
+class Mob:
+    def __init__(self, x, y, speed):
+        self.rect = pygame.Rect(x, y, CELL_SIZE // 3, CELL_SIZE // 3)
+        self.speed = speed
+        self.direction = random.choice([(0, -1), (0, 1), (-1, 0), (1, 0)])
+        self.color = random.choice([RED, (128, 0, 128), (255, 255, 0)])
+
+    def move(self, walls):
+        dx, dy = self.direction
+        new_rect = self.rect.move(dx * self.speed, dy * self.speed)
+        if not any(new_rect.colliderect(wall) for wall in walls):
+            self.rect = new_rect
+        else:
+            self.direction = random.choice([(0, -1), (0, 1), (-1, 0), (1, 0)])
+        if self.rect.left < 0 or self.rect.right > WIDTH or self.rect.top < 0 or self.rect.bottom > HEIGHT:
+            self.direction = random.choice([(0, -1), (0, 1), (-1, 0), (1, 0)])
+
+    def draw(self, screen):
+        center = (self.rect.centerx, self.rect.centery)
+        pygame.draw.circle(screen, self.color, center, self.rect.width // 2)
+        eye_offset = self.rect.width // 4
+        eye_radius = self.rect.width // 8
+        pygame.draw.circle(screen, WHITE, (center[0] - eye_offset, center[1] - eye_offset), eye_radius)
+        pygame.draw.circle(screen, WHITE, (center[0] + eye_offset, center[1] - eye_offset), eye_radius)
+        pygame.draw.circle(screen, BLACK, (center[0] - eye_offset, center[1] - eye_offset), eye_radius // 2)
+        pygame.draw.circle(screen, BLACK, (center[0] + eye_offset, center[1] - eye_offset), eye_radius // 2)
+
+
+# 迷路の生成
 maze = generate_maze(ROWS, COLS)
 
 # 壁とゴールのリスト
@@ -115,6 +145,15 @@ for row_index, row in enumerate(maze):
                 damage_walls.append(wall_rect)
         elif cell == 2:  # ゴールの位置
             goal = pygame.Rect(col_index * CELL_SIZE, row_index * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+
+# 敵MOBの配置
+mobs = []
+while len(mobs) < 10:
+    mob_x = random.randint(1, COLS - 2) * CELL_SIZE
+    mob_y = random.randint(1, ROWS - 2) * CELL_SIZE
+    mob_rect = pygame.Rect(mob_x, mob_y, CELL_SIZE // 2, CELL_SIZE // 2)
+    if not any(mob_rect.colliderect(wall) for wall in walls):
+        mobs.append(Mob(mob_x, mob_y, 2))
 
 # プレイヤーの初期位置
 player_size = CELL_SIZE // 3
@@ -145,14 +184,14 @@ def draw_player_wall(x, y, invincible):
         return
     pygame.draw.rect(SCREEN, BLUE, (x, y, player_size, player_size))
 
-PLAYER_IMAGE = pygame.image.load("ex5/fig/0.png")
+PLAYER_IMAGE = pygame.image.load("fig/0.png")
 PLAYER_IMAGE = pygame.transform.scale(PLAYER_IMAGE, (player_size, player_size))
 
 def draw_player(x, y):
     global invincible_flash
     player_image = PLAYER_IMAGE.copy()
     
-    if invincible_item:
+    if invincible or invincible_item:
         invincible_flash = (invincible_flash + 1) % 30  # 点滅スピード調整（30フレームで切り替え）
         if invincible_flash < 15:
             # 黄色く点滅
@@ -192,7 +231,7 @@ def check_item_collision(player_rect, items):
                 player_health = min(player_health + 10, 100)
             elif item.type == "weapon":
                 weapon_active = True
-                weapon_timer = 300
+                weapon_timer = 1  # 一回だけ敵を倒せるカウント
             elif item.type == "invincible":
                 invincible_item = True
                 invincible_timer = 300
@@ -219,10 +258,6 @@ while running:
 
     player_rect = pygame.Rect(new_x, new_y, player_size, player_size)
 
-    # 無敵状態の時間確認
-    if invincible and time.time() - invincible_start_time > 2:
-        invincible = False
-
     # 壁との衝突判定
     if not any(player_rect.colliderect(wall) for wall in walls):
         player_x, player_y = new_x, new_y
@@ -231,10 +266,14 @@ while running:
     if not invincible and any(player_rect.colliderect(d_wall) for d_wall in damage_walls):
         player_health -= 10  # 衝突ごとに体力を減少
         invincible = True  # 無敵状態を有効化
-        invincible_start_time = time.time()  # 無敵状態開始時間を記録
+        invincible_start_time = time.time()
         if player_health <= 0:
             display_game_over()
             running = False
+
+    # 無敵状態の時間確認
+    if invincible and time.time() - invincible_start_time > 2:
+        invincible = False
 
     # ゴール判定
     if player_rect.colliderect(goal):
@@ -243,17 +282,23 @@ while running:
 
     check_item_collision(player_rect, items)
 
-    if weapon_active:
-        weapon_timer -= 1
-        if weapon_timer <= 0:
-            weapon_active = False
+    for mob in mobs[:]:
+        mob.move(walls)
+        mob.draw(SCREEN)
+        if player_rect.colliderect(mob.rect):
+            if weapon_timer > 0:  # 武器所有で敵を倒す
+                mobs.remove(mob)
+                weapon_timer -= 1
+            elif not invincible_item:  # 無敵でない場合はゲームオーバー
+                display_game_over()
+                running = False
+
     if invincible_item:
         invincible_timer -= 1
         if invincible_timer <= 0:
             invincible_item = False
 
     draw_maze()
-    draw_player_wall(player_x, player_y, invincible)
     for item in items:
         item.draw()
     draw_player(player_x, player_y)
@@ -263,15 +308,13 @@ while running:
     hp_text = font.render(f"HP: {player_health}", True, GREEN)
     SCREEN.blit(hp_text, (10, 10))
 
-    if weapon_active:
+    if weapon_timer > 0:
         SCREEN.blit(font.render("Weapon Active", True, (255, 165, 0)), (10, 50))
-    if invincible_item:
+    if invincible_item or invincible:
         SCREEN.blit(font.render("Invincible", True, (0, 255, 255)), (10, 90))
 
     pygame.display.flip()
     clock.tick(FPS)
 
 pygame.quit()
-sys.exit()
-
 sys.exit()
